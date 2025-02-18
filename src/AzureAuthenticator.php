@@ -16,13 +16,24 @@ class AzureAuthenticator
   private const MSGRAPH_SCOPE = 'https://graph.microsoft.com/User.Read';
   private const MSGRAPH_URL   = 'https://graph.microsoft.com/v1.0/me/';
 
+  /**
+   * __construct
+   * @param $client_id     Azure AD client id
+   * @param $client_secret Azure AD client secret
+   * @param $redirect_url Azure AD redirect url
+   * @param \Psr\Log\LoggerInterface $logger optional logger
+   * @param \GuzzleHttp\Client $httpClient optional http client
+   * 
+   * Make sure to use the setters for the callbacks and tenant_id if required
+   */
   public function __construct(
     readonly string $client_id,
     readonly string $client_secret,
     readonly string $redirect_url,
-    readonly LoggerInterface $logger = new \Psr\Log\NullLogger(),
-    readonly Client $httpClient = new Client(),
-  {
+    readonly ?LoggerInterface $logger = new \Psr\Log\NullLogger(),
+    readonly ?Client $httpClient = new Client(),
+  ) {
+    // nothing to do
   }
   private string $tenant_id = '';
   public function setTenantId( string $tenant_id ): self
