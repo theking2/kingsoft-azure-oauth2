@@ -18,9 +18,11 @@ if( array_key_exists( 'action', $_GET ) ) {
   (new AzureAuthenticator(
     SETTINGS['aad']['client-id'],
     SETTINGS['aad']['client-secret'],
-    'https://' . $_SERVER['SERVER_NAME'] . '/' . basename( $_SERVER['SCRIPT_FILENAME'] )
+    'https://' . $_SERVER['SERVER_NAME'] . '/' . basename( $_SERVER['SCRIPT_FILENAME'],
+    // LOG,
+    new \GuzzleHttp\Client() )
   ))
-    ->setTennantId( SETTINGS['aad']['tennant-id'] )
+    ->setTenantId( SETTINGS['aad']['tennant-id'] )
     ->setLogonCallback( 'findUser' )
     ->setGetStateCallback( 'getState' )
     ->setCheckStateCallback( 'checkState' )

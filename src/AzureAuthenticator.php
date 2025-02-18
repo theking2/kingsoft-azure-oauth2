@@ -20,12 +20,12 @@ class AzureAuthenticator
     readonly string $client_id,
     readonly string $client_secret,
     readonly string $redirect_url,
-    readonly LoggerInterface $logger,
-    readonly Client $httpClient )
+    readonly LoggerInterface $logger = new \Psr\Log\NullLogger(),
+    readonly Client $httpClient = new Client(),
   {
   }
   private string $tenant_id = '';
-  public function settenantId( string $tenant_id ): self
+  public function setTenantId( string $tenant_id ): self
   {
     $this->tenant_id = $tenant_id;
     return $this;
