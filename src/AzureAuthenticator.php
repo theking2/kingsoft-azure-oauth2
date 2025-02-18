@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace Kingsoft\Azure;
 
-
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use Psr\Http\Message\ResponseInterface;
@@ -12,7 +11,7 @@ use Psr\Log\LoggerInterface;
  * the client_id needs access to Graph to lookup the user details, specifically the email and id
  * After success the logon callback is called to implement post logon actions
  */
-class AzureAuthenticator
+class AzureAuthenticator extends Client
 {
   private const MSONLINE_URL  = 'https://login.microsoftonline.com/';
   private const MSGRAPH_SCOPE = 'https://graph.microsoft.com/User.Read';
@@ -24,7 +23,6 @@ class AzureAuthenticator
    * @param $client_secret Azure AD client secret
    * @param $redirect_url Azure AD redirect url
    * @param \Psr\Log\LoggerInterface $logger optional logger
-   * @param \GuzzleHttp\Client $httpClient optional http client
    * 
    * Make sure to use the setters for the callbacks and tenant_id if required
    */
@@ -32,10 +30,9 @@ class AzureAuthenticator
     readonly string $client_id,
     readonly string $client_secret,
     readonly string $redirect_url,
-    readonly ?LoggerInterface $logger = new \Psr\Log\NullLogger(),
-    readonly ?Client $httpClient = new Client(),
+    readonly ?LoggerInterface $logger = new \Psr\Log\NullLogger()
   ) {
-    // nothing to do
+    parent::__construct();
   }
   private string $tenant_id = '';
   public function setTenantId( string $tenant_id ): self
@@ -295,7 +292,7 @@ class AzureAuthenticator
   private function sendPost( string $url, array $payload ): array|bool
   {
     try {
-      $response = $this->httpClient->post( $url, [ 
+      $response = $this->post( $url, [ 
         'form_params' => $payload,
         'headers'     => [ 'Content-Type' => 'application/x-www-form-urlencoded' ],
         'timeout'     => 10, // Prevent long waits
@@ -314,7 +311,7 @@ class AzureAuthenticator
   private function sendGet( string $url, array $params, string $authorization ): array|bool
   {
     try {
-      $response = $this->httpClient->get( $url, [ 
+      $response = $this->get( $url, [ 
         'query'   => $params,
         'headers' => [ 
           'Authorization' => $authorization,
