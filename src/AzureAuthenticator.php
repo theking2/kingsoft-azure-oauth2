@@ -180,7 +180,7 @@ class AzureAuthenticator
         exit();
 
       }
-      $this->logger->critical( 'Graph failed', [ 'access token' => $access_token ] );
+      $this->logger->critical( 'Graph failed', [ 'access token' => self::shorten( $access_token, 15 ) ] );
       http_response_code( StatusCode::BadGateway->value );
     }
     $this->logger->critical( 'Missing code', $_POST );
@@ -192,15 +192,16 @@ class AzureAuthenticator
    */
   public function requestAzureAdCode(): void
   {
+	$state = $this->get_state_callback ? call_user_func( $this->get_state_callback ) : session_id();
     $params = [ 
       'client_id'     => $this->client_id,
       'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
       'redirect_uri'  => $this->redirect_url,
       'response_mode' => 'form_post',
       'response_type' => 'code',
-      'state'         => $this->get_state_callback ? call_user_func( $this->get_state_callback ) : session_id(),
+      'state'         => $state,
     ];
-    $this->logger->debug( 'Redirect to Azure AD authorizer', $params );
+    $this->logger->debug( 'Redirect to Azure AD authorizer', [ 'url' => $this->redirect_url, 'state' => self::shorten($state) ] );
     $login_url = $this->getAuthUrl();
     header( 'Location: ' . $login_url . '?' . http_build_query( $params ) );
     // we hear back in handleAuthorizationCode
@@ -284,7 +285,7 @@ class AzureAuthenticator
    * @param  $text string to shorten
    * @param  $length maximum lenght
    */
-  private static function shorten( string $text, int $length ): string
+  private static function shorten( string $text, int $length=15 ): string
   {
     if( mb_strlen( $text ) <= $length )
       return $text;
@@ -309,6 +310,7 @@ class AzureAuthenticator
       return false;
     }
   }
+
   private function sendGet( string $url, array $params, string $authorization ): array|bool
   {
     try {
@@ -330,6 +332,7 @@ class AzureAuthenticator
       return false;
     }
   }
+
   private function handleResponse( ResponseInterface $response ): array|bool
   {
     $body    = (string) $response->getBody();
@@ -342,7 +345,4 @@ class AzureAuthenticator
 
     return $decoded;
   }
-
-
 }
-
