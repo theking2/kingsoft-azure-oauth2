@@ -5,7 +5,7 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Kingsoft\\AzureAuthenticator\\": "src/"
+            "Kingsoft\\Azure\\": "src/"
         }
     },
     "authors": [
