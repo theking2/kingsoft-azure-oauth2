@@ -30,8 +30,8 @@ class AzureAuthenticator
     readonly string $client_id,
     readonly string $client_secret,
     readonly string $redirect_url,
-    readonly ?LoggerInterface $logger = new \Psr\Log\NullLogger(),
-    readonly ?Client $httpClient = new Client(),
+    readonly LoggerInterface $logger = new \Psr\Log\NullLogger(),
+    readonly Client $httpClient = new Client(),
   ) {
     // nothing to do
   }
