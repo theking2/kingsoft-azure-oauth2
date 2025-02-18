@@ -1,5 +1,7 @@
 <?php declare(strict_types=1);
-namespace Kingsoft\AzureAuthenticator;
+namespace Kingsoft\Azure;
+
+
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use Psr\Http\Message\ResponseInterface;
