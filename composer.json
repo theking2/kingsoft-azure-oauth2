@@ -1,0 +1,22 @@
+{
+    "name": "kingsoft/azure-oauth2",
+    "description": "Handler to authenticate with AzureAD",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Kingsoft\\AzureAuthenticator\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "theking2",
+            "email": "theking2@king.ma"
+        }
+    ],
+    "minimum-stability": "RC",
+    "require": {
+        "kingsoft/http": "^3.8",
+        "guzzlehttp/guzzle": "^7.9"
+    }
+}
