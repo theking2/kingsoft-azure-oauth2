@@ -16,7 +16,7 @@
     ],
     "minimum-stability": "RC",
     "require": {
-        "kingsoft/http": "^3.8",
-        "guzzlehttp/guzzle": "^7.9"
+        "php": ">=8.2",
+        "kingsoft/http": "^3.8"
     }
 }
