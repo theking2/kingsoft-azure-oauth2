@@ -20,7 +20,7 @@ if( array_key_exists( 'action', $_GET ) ) {
     SETTINGS['aad']['client-secret'],
     'https://' . $_SERVER['SERVER_NAME'] . '/' . basename( $_SERVER['SCRIPT_FILENAME'],
     // LOG,
-    new \GuzzleHttp\Client() )
+  )
   ))
     ->setTenantId( SETTINGS['aad']['tennant-id'] )
     ->setLogonCallback( 'findUser' )
