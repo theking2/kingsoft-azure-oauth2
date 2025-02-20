@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 namespace Kingsoft\Azure;
 
-use Psr\Http\Message\ResponseInterface;
 use Kingsoft\Http\StatusCode;
-use Psr\Log\LoggerInterface;
 /**
  * oauth2 Azure Authentication and Authorization (Graph)
  * the client_id needs access to Graph to lookup the user details, specifically the email and id
@@ -28,8 +26,9 @@ class AzureAuthenticator
     readonly string $client_id,
     readonly string $client_secret,
     readonly string $redirect_url,
-    readonly LoggerInterface $logger = new \Psr\Log\NullLogger()
+    readonly \Psr\Log\LoggerInterface $logger = new \Psr\Log\NullLogger()
   ) {
+	  $this->logger->debug('AzureAuthenticator loaded');
   }
   private string $tenant_id = '';
   public function setTenantId( string $tenant_id ): self
@@ -88,7 +87,7 @@ class AzureAuthenticator
       throw new \RuntimeException( 'Logon error: user not recognized.' );
     }
 
-    $this->logger->debug( 'Redirect to /', [
+    $this->logger->debug( 'Redirect to /', [ 
       'userPrincipalName' => $userResource['userPrincipalName'],
       'displayName'       => $userResource["displayName"]
     ] );
@@ -100,7 +99,7 @@ class AzureAuthenticator
   // #MARK: Helpers for Authorization
   private function handleError( string $error ): void
   {
-    $this->logger->critical( 'Received error', ['error' => $error] );
+    $this->logger->critical( 'Received error', [ 'error' => $error ] );
     http_response_code( StatusCode::BadGateway->value );
     exit();
   }
@@ -111,14 +110,14 @@ class AzureAuthenticator
 
   private function processLogon( array $userResource ): bool
   {
-    $this->logger->info( 'AD User logged on', [
+    $this->logger->info( 'AD User logged on', [ 
       'userPrincipalName' => $userResource['userPrincipalName'],
       'displayName'       => $userResource["displayName"]
     ] );
 
     if( is_callable( $this->logon_callback ) ) {
       if( !call_user_func( $this->logon_callback, $userResource ) ) {
-        $this->logger->alert( 'Logon error', [
+        $this->logger->alert( 'Logon error', [ 
           'userPrincipalName' => $userResource['userPrincipalName'],
           'displayName'       => $userResource["displayName"],
           'id'                => $userResource['id']
@@ -132,13 +131,24 @@ class AzureAuthenticator
   }
 
   /**
+   * Summary of logoutAzure
+   * @param $redirectUrl where to redirect after logout
+   * @return never
+   */
+  public function logoutAzure( string $redirectUrl): never {
+    $logout_url = self::MSONLINE_URL . $this->tenant_id . "/oauth2/v2.0/logout?post_logout_redirect_uri=$redirectUrl";
+    header( "Location: $logout_url" );
+    exit;
+  }
+  
+  /**
    * MARK: Handle a POST from Azure AD
    * Redirects to Azure AD for authorization
    */
-  public function requestAzureAdCode(): void
+  public function requestAzureAdCode(): never
   {
     $state  = $this->get_state_callback ? call_user_func( $this->get_state_callback ) : session_id();
-    $params = [
+    $params = [ 
       'client_id'     => $this->client_id,
       'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
       'redirect_uri'  => $this->redirect_url,
@@ -146,10 +156,11 @@ class AzureAuthenticator
       'response_type' => 'code',
       'state'         => $state,
     ];
-    $this->logger->debug( 'Redirect to Azure AD authorizer', ['url' => $this->redirect_url, 'state' => self::shorten( $state )] );
+    $this->logger->debug( 'Redirect to Azure AD authorizer', [ 'url' => $this->redirect_url, 'state' => self::shorten( $state ) ] );
     $login_url = $this->getAuthUrl();
     header( 'Location: ' . $login_url . '?' . http_build_query( $params ) );
     // we hear back in handleAuthorizationCode
+    exit;
   }
 
   // #MARK: Call Graph
@@ -161,10 +172,10 @@ class AzureAuthenticator
    */
   private function getUserResource( string $access_token ): array
   {
-    $this->logger->debug( 'Getting user resource from Graph', ['access token' => self::shorten( $access_token, 15 )] );
+    $this->logger->debug( 'Getting user resource from Graph', [ 'access token' => self::shorten( $access_token, 15 ) ] );
     /* get user info, using the access token as */
     return $this->sendGet( AzureAuthenticator::MSGRAPH_URL, [], "Bearer $access_token" )
-      ??throw new \RuntimeException( 'No user resource' );
+      ?? throw new \RuntimeException( 'No user resource' );
   }
   /**
    * getAccessToken
@@ -174,12 +185,12 @@ class AzureAuthenticator
    */
   private function getAccessToken( string $authorization_code ): string
   {
-    $this->logger->debug( 'Getting access token', ['authorization_code' => self::shorten( $authorization_code, 15 )] );
+    $this->logger->debug( 'Getting access token', [ 'authorization_code' => self::shorten( $authorization_code, 15 ) ] );
 
     /* Request token from Azure AD tokenizer */
     $token_url = $this->getTokenUrl();
 
-    $params = [
+    $params = [ 
       'client_id'     => $this->client_id,
       'client_secret' => $this->client_secret,
       'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
@@ -192,17 +203,17 @@ class AzureAuthenticator
 
     if( $answer = $this->sendPost( $token_url, $params ) ) {
       if( isset( $answer['error'] ) ) {
-        $this->logger->critical( 'sendPost error response', ['error' => $answer['error']] );
+        $this->logger->critical( 'sendPost error response', [ 'error' => $answer['error'] ] );
         http_response_code( StatusCode::BadGateway->value );
         throw new \RuntimeException( 'sendPost error response' );
       }
       if( $answer['token_type'] !== 'Bearer' ) {
-        $this->logger->critical( "Wrong token type", ['token_type' => $answer['token_type']] );
+        $this->logger->critical( "Wrong token type", [ 'token_type' => $answer['token_type'] ] );
         http_response_code( StatusCode::BadGateway->value );
         throw new \RuntimeException( 'Wrong token type' );
       }
       $this->logger->debug( 'Got access token',
-        [
+        [ 
           "scope"          => $answer['scope'],
           "token_type"     => $answer['token_type'],
           "expires_in"     => $answer['expires_in'],
@@ -210,7 +221,7 @@ class AzureAuthenticator
         ]
       );
       return $answer['access_token']
-        ??throw new \RuntimeException( 'No access token' );
+        ?? throw new \RuntimeException( 'No access token' );
     } else {
       $this->logger->critical( 'No answer from sendPost' );
       http_response_code( StatusCode::BadGateway->value );
@@ -242,8 +253,8 @@ class AzureAuthenticator
 
   private function sendPost( string $url, array $payload ): array
   {
-    $opts    = [
-      'http' => [
+    $opts    = [ 
+      'http' => [ 
         'method'  => 'POST',
         'header'  => 'Content-Type: application/x-www-form-urlencoded',
         'content' => http_build_query( $payload )
@@ -254,13 +265,13 @@ class AzureAuthenticator
     // but monolog error handler will report this anyway
     if( false === $result = @file_get_contents( $url, false, $context ) ) {
       http_response_code( StatusCode::BadGateway->value );
-      $this->logger->warning( 'sendPost: file_get_content false', ['url' => $url, 'payload' => $payload] );
+      $this->logger->warning( 'sendPost: file_get_content false', [ 'url' => $url, 'payload' => $payload ] );
       throw new \RuntimeException( 'sendPost: file_get_content false' );
     }
 
     $result = json_decode( $result, true );
     if( json_last_error() !== JSON_ERROR_NONE ) {
-      $this->logger->warning( 'JSON decode error: ' . json_last_error_msg(), ['result' => $result] );
+      $this->logger->warning( 'JSON decode error: ' . json_last_error_msg(), [ 'result' => $result ] );
       http_response_code( StatusCode::BadGateway->value );
       exit( 0 );
     }
@@ -270,10 +281,10 @@ class AzureAuthenticator
 
   private function sendGet( string $url, array $payload, string $authorization ): array
   {
-    $opts = [
-      'http' => [
+    $opts = [ 
+      'http' => [ 
         'method' => 'GET',
-        'header' => [
+        'header' => [ 
           'Content-Type: application/x-www-form-urlencoded',
           "Authorization: $authorization"
         ]
@@ -289,13 +300,13 @@ class AzureAuthenticator
         return $result;
 
       } else {
-        $this->logger->alert( 'sendGet response not JSON', ['url' => $url, 'payload' => $payload, 'response' => $result] );
+        $this->logger->alert( 'sendGet response not JSON', [ 'url' => $url, 'payload' => $payload, 'response' => $result ] );
         throw new \RuntimeException( 'sendGet response not JSON' );
       }
     } else {
       session_destroy();
       http_response_code( StatusCode::BadGateway->value );
-      $this->logger->warning( 'sendGet: file_get_content false', ['url' => $url, 'payload' => $payload] );
+      $this->logger->warning( 'sendGet: file_get_content false', [ 'url' => $url, 'payload' => $payload ] );
       exit;
     }
   }
