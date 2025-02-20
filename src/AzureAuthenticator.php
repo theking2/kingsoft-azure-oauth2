@@ -28,7 +28,7 @@ class AzureAuthenticator
     readonly string $client_id,
     readonly string $client_secret,
     readonly string $redirect_url,
-    readonly ?LoggerInterface $logger = new \Psr\Log\NullLogger()
+    readonly LoggerInterface $logger = new \Psr\Log\NullLogger()
   ) {
   }
   private string $tenant_id = '';
@@ -211,6 +211,10 @@ class AzureAuthenticator
       );
       return $answer['access_token']
         ??throw new \RuntimeException( 'No access token' );
+    } else {
+      $this->logger->critical( 'No answer from sendPost' );
+      http_response_code( StatusCode::BadGateway->value );
+      throw new \RuntimeException( 'No answer from sendPost' );
     }
   }
 
