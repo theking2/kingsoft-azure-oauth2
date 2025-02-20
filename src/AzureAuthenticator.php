@@ -99,7 +99,7 @@ class AzureAuthenticator
   // #MARK: Helpers for Authorization
   private function handleError( string $error ): void
   {
-    $this->logger->critical( 'Received error', [ 'error' => $error ] );
+    $this->logger->alert( 'Received error', [ 'error' => $error ] );
     http_response_code( StatusCode::BadGateway->value );
     exit();
   }
@@ -223,7 +223,7 @@ class AzureAuthenticator
       return $answer['access_token']
         ?? throw new \RuntimeException( 'No access token' );
     } else {
-      $this->logger->critical( 'No answer from sendPost' );
+      $this->logger->alert( 'No answer from sendPost' );
       http_response_code( StatusCode::BadGateway->value );
       throw new \RuntimeException( 'No answer from sendPost' );
     }
