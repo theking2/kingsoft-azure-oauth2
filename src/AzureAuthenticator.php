@@ -28,7 +28,7 @@ class AzureAuthenticator
     readonly string $redirect_url,
     readonly \Psr\Log\LoggerInterface $logger = new \Psr\Log\NullLogger()
   ) {
-	  $this->logger->debug('AzureAuthenticator loaded');
+    $this->logger->debug( 'AzureAuthenticator loaded' );
   }
   private string $tenant_id = '';
   public function setTenantId( string $tenant_id ): self
@@ -135,12 +135,13 @@ class AzureAuthenticator
    * @param $redirectUrl where to redirect after logout
    * @return never
    */
-  public function logoutAzure( string $redirectUrl): never {
+  public function logoutAzure( string $redirectUrl ): never
+  {
     $logout_url = self::MSONLINE_URL . $this->tenant_id . "/oauth2/v2.0/logout?post_logout_redirect_uri=$redirectUrl";
     header( "Location: $logout_url" );
     exit;
   }
-  
+
   /**
    * MARK: Handle a POST from Azure AD
    * Redirects to Azure AD for authorization
@@ -163,6 +164,28 @@ class AzureAuthenticator
     exit;
   }
 
+  /**
+   * Testing only
+   * @return void
+   */
+  public function dryRun(): void
+  {
+    $this->logger->debug( 'Dry run' );
+    $state = $this->get_state_callback ? call_user_func( $this->get_state_callback ) : session_id();
+    $valid = $this->check_state_callback ? call_user_func( $this->check_state_callback, $state ) : true;
+    $this->logger->debug( 'State validity', [ 'state' => self::shorten($state), 'valid' => $valid ] );
+    $params = [ 
+      'client_id'     => $this->client_id,
+      'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
+      'redirect_uri'  => $this->redirect_url,
+      'response_mode' => 'form_post',
+      'response_type' => 'code',
+      'state'         => $state,
+    ];
+    $this->logger->debug( 'Params', $params );
+  }
+
+  
   // #MARK: Call Graph
 
   /**
