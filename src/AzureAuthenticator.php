@@ -71,15 +71,15 @@ class AzureAuthenticator
    */
   public function handleAuthorizationCode(): void
   {
-    if( isset( $_POST['error'] ) ) {
-      $this->handleError( $_POST['error'] );
+    if( isset( $_POST[ 'error' ] ) ) {
+      $this->handleError( $_POST[ 'error' ] );
     }
 
-    if( !$this->isStateValid( $_POST['state'] ?? '' ) ) {
+    if( !$this->isStateValid( $_POST[ 'state' ] ?? '' ) ) {
       throw new \RuntimeException( 'State mismatch detected.' );
     }
 
-    $accessToken  = $this->getAccessToken( $_POST['code'] ?? '' );
+    $accessToken  = $this->getAccessToken( $_POST[ 'code' ] ?? '' );
     $userResource = $this->getUserResource( $accessToken );
 
     if( !$this->processLogon( $userResource ) ) {
@@ -87,9 +87,9 @@ class AzureAuthenticator
       throw new \RuntimeException( 'Logon error: user not recognized.' );
     }
 
-    $this->logger->debug( 'Redirect to /', [ 
-      'userPrincipalName' => $userResource['userPrincipalName'],
-      'displayName'       => $userResource["displayName"]
+    $this->logger->debug( 'Redirect to /', [
+      'userPrincipalName' => $userResource[ 'userPrincipalName' ],
+      'displayName'       => $userResource[ "displayName" ]
     ] );
 
     header( 'Location: /' );
@@ -99,7 +99,7 @@ class AzureAuthenticator
   // #MARK: Helpers for Authorization
   private function handleError( string $error ): void
   {
-    $this->logger->alert( 'Received error', [ 'error' => $error ] );
+    $this->logger->alert( 'Received error', ['error' => $error] );
     http_response_code( StatusCode::BadGateway->value );
     exit();
   }
@@ -110,17 +110,17 @@ class AzureAuthenticator
 
   private function processLogon( array $userResource ): bool
   {
-    $this->logger->info( 'AD User logged on', [ 
-      'userPrincipalName' => $userResource['userPrincipalName'],
-      'displayName'       => $userResource["displayName"]
+    $this->logger->info( 'AD User logged on', [
+      'userPrincipalName' => $userResource[ 'userPrincipalName' ],
+      'displayName'       => $userResource[ "displayName" ]
     ] );
 
     if( is_callable( $this->logon_callback ) ) {
       if( !call_user_func( $this->logon_callback, $userResource ) ) {
-        $this->logger->alert( 'Logon error', [ 
-          'userPrincipalName' => $userResource['userPrincipalName'],
-          'displayName'       => $userResource["displayName"],
-          'id'                => $userResource['id']
+        $this->logger->alert( 'Logon error', [
+          'userPrincipalName' => $userResource[ 'userPrincipalName' ],
+          'displayName'       => $userResource[ "displayName" ],
+          'id'                => $userResource[ 'id' ]
         ] );
         http_response_code( StatusCode::Forbidden->value );
         exit();
@@ -149,7 +149,7 @@ class AzureAuthenticator
   public function requestAzureAdCode(): never
   {
     $state  = $this->get_state_callback ? call_user_func( $this->get_state_callback ) : session_id();
-    $params = [ 
+    $params = [
       'client_id'     => $this->client_id,
       'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
       'redirect_uri'  => $this->redirect_url,
@@ -157,7 +157,7 @@ class AzureAuthenticator
       'response_type' => 'code',
       'state'         => $state,
     ];
-    $this->logger->debug( 'Redirect to Azure AD authorizer', [ 'url' => $this->redirect_url, 'state' => self::shorten( $state ) ] );
+    $this->logger->debug( 'Redirect to Azure AD authorizer', ['url' => $this->redirect_url, 'state' => self::shorten( $state )] );
     $login_url = $this->getAuthUrl();
     header( 'Location: ' . $login_url . '?' . http_build_query( $params ) );
     // we hear back in handleAuthorizationCode
@@ -173,8 +173,8 @@ class AzureAuthenticator
     $this->logger->debug( 'Dry run' );
     $state = $this->get_state_callback ? call_user_func( $this->get_state_callback ) : session_id();
     $valid = $this->check_state_callback ? call_user_func( $this->check_state_callback, $state ) : true;
-    $this->logger->debug( 'State validity', [ 'state' => self::shorten($state), 'valid' => $valid ] );
-    $params = [ 
+    $this->logger->debug( 'State validity', ['state' => self::shorten( $state ), 'valid' => $valid] );
+    $params = [
       'client_id'     => $this->client_id,
       'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
       'redirect_uri'  => $this->redirect_url,
@@ -185,7 +185,7 @@ class AzureAuthenticator
     $this->logger->debug( 'Params', $params );
   }
 
-  
+
   // #MARK: Call Graph
 
   /**
@@ -195,7 +195,7 @@ class AzureAuthenticator
    */
   private function getUserResource( string $access_token ): array
   {
-    $this->logger->debug( 'Getting user resource from Graph', [ 'access token' => self::shorten( $access_token, 15 ) ] );
+    $this->logger->debug( 'Getting user resource from Graph', ['access token' => self::shorten( $access_token, 15 )] );
     /* get user info, using the access token as */
     return $this->sendGet( AzureAuthenticator::MSGRAPH_URL, [], "Bearer $access_token" )
       ?? throw new \RuntimeException( 'No user resource' );
@@ -208,12 +208,12 @@ class AzureAuthenticator
    */
   private function getAccessToken( string $authorization_code ): string
   {
-    $this->logger->debug( 'Getting access token', [ 'authorization_code' => self::shorten( $authorization_code, 15 ) ] );
+    $this->logger->debug( 'Getting access token', ['authorization_code' => self::shorten( $authorization_code, 15 )] );
 
     /* Request token from Azure AD tokenizer */
     $token_url = $this->getTokenUrl();
 
-    $params = [ 
+    $params = [
       'client_id'     => $this->client_id,
       'client_secret' => $this->client_secret,
       'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
@@ -225,25 +225,25 @@ class AzureAuthenticator
     ];
 
     if( $answer = $this->sendPost( $token_url, $params ) ) {
-      if( isset( $answer['error'] ) ) {
-        $this->logger->critical( 'sendPost error response', [ 'error' => $answer['error'] ] );
+      if( isset( $answer[ 'error' ] ) ) {
+        $this->logger->critical( 'sendPost error response', ['error' => $answer[ 'error' ]] );
         http_response_code( StatusCode::BadGateway->value );
         throw new \RuntimeException( 'sendPost error response' );
       }
-      if( $answer['token_type'] !== 'Bearer' ) {
-        $this->logger->critical( "Wrong token type", [ 'token_type' => $answer['token_type'] ] );
+      if( $answer[ 'token_type' ] !== 'Bearer' ) {
+        $this->logger->critical( "Wrong token type", ['token_type' => $answer[ 'token_type' ]] );
         http_response_code( StatusCode::BadGateway->value );
         throw new \RuntimeException( 'Wrong token type' );
       }
       $this->logger->debug( 'Got access token',
-        [ 
-          "scope"          => $answer['scope'],
-          "token_type"     => $answer['token_type'],
-          "expires_in"     => $answer['expires_in'],
-          "ext_expires_in" => $answer['ext_expires_in']
+        [
+          "scope"          => $answer[ 'scope' ],
+          "token_type"     => $answer[ 'token_type' ],
+          "expires_in"     => $answer[ 'expires_in' ],
+          "ext_expires_in" => $answer[ 'ext_expires_in' ]
         ]
       );
-      return $answer['access_token']
+      return $answer[ 'access_token' ]
         ?? throw new \RuntimeException( 'No access token' );
     } else {
       $this->logger->alert( 'No answer from sendPost' );
@@ -274,64 +274,116 @@ class AzureAuthenticator
     return mb_substr( $text, 0, $length - 1 ) . '…';
   }
 
-  private function sendPost( string $url, array $payload ): array
+  /**
+   * Sends a POST request to the specified URL with the given payload.
+   *
+   * @param $url The endpoint URL to which the POST request will be sent.
+   * @param $payload The data to be sent in the body of the POST request.
+   * @param $authorization The authorization header value (e.g., Bearer token).
+   * @return array The response from the server, decoded as an associative array.
+   */
+  private function sendPost( string $url, array $payload = [], string $authorization = "" ): array
   {
-    $opts    = [ 
-      'http' => [ 
-        'method'  => 'POST',
-        'header'  => 'Content-Type: application/x-www-form-urlencoded',
-        'content' => http_build_query( $payload )
-      ]
-    ];
-    $context = stream_context_create( $opts );
-    // we don-t want warnings, hence the @
-    // but monolog error handler will report this anyway
-    if( false === $result = @file_get_contents( $url, false, $context ) ) {
-      http_response_code( StatusCode::BadGateway->value );
-      $this->logger->warning( 'sendPost: file_get_content false', [ 'url' => $url, 'payload' => $payload ] );
-      throw new \RuntimeException( 'sendPost: file_get_content false' );
+    $this->logger->debug( 'sendPost', ['url' => $url] );
+
+    $ch = curl_init( $url );
+    curl_setopt( $ch, CURLOPT_POST, true );
+    curl_setopt( $ch, CURLOPT_POSTFIELDS, http_build_query( $payload ) );
+    curl_setopt( $ch, CURLOPT_HTTPHEADER, [
+      'Content-Type: application/x-www-form-urlencoded',
+      "Authorization: $authorization"
+    ] );
+    curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+    curl_setopt( $ch, CURLOPT_FAILONERROR, false ); // To handle HTTP 4xx/5xx as response, not error
+    curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true ); // For security, disable only if needed
+
+    $result = curl_exec( $ch );
+
+    if( $result === false ) {
+      $error = curl_error( $ch );
+      $errno = curl_errno( $ch );
+      curl_close( $ch );
+
+      throw new \RuntimeException( "sendPost: cURL error($errno) - $error" );
     }
 
+    $httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    curl_close( $ch );
+
+    if( $httpCode >= 400 ) {
+      throw new \RuntimeException( 'sendPost: Bad HTTP response - ' . $httpCode );
+    }
+
+    $this->logger->debug( 'sendPost: Response received' );
     $result = json_decode( $result, true );
-    if( json_last_error() !== JSON_ERROR_NONE ) {
-      $this->logger->warning( 'JSON decode error: ' . json_last_error_msg(), [ 'result' => $result ] );
-      http_response_code( StatusCode::BadGateway->value );
-      exit( 0 );
+
+    if( json_last_error() === JSON_ERROR_NONE ) {
+      $this->logger->debug( 'sendPost: valid response' );
+      return $result;
     }
-    $this->logger->debug( 'valid sendPost response' );
-    return $result;
+
+    $this->logger->alert( 'sendPost response not JSON', [
+      'url'      => $url,
+      'payload'  => $payload,
+      'response' => $result
+    ] );
+    throw new \RuntimeException( 'sendPost: JSON decode error ' . json_last_error_msg() );
   }
-
-  private function sendGet( string $url, array $payload, string $authorization ): array
+  /**
+   * Sends a GET request to the specified URL with the given payload and authorization header.
+   *
+   * @param string $url The endpoint URL to send the GET request to.
+   * @param array $payload The query parameters to include in the request.
+   * @param string $authorization The authorization header value (e.g., Bearer token).
+   * @return array The response data as an associative array.
+   */
+  private function sendGet( string $url, array $payload = [], string $authorization = "" ): array
   {
-    $opts = [ 
-      'http' => [ 
-        'method' => 'GET',
-        'header' => [ 
-          'Content-Type: application/x-www-form-urlencoded',
-          "Authorization: $authorization"
-        ]
-      ]
-    ];
+    $this->logger->debug( 'sendGet', ['url' => $url] );
 
-    $context = stream_context_create( $opts );
-    // we don-t want warnings, hence the @
-    if( false !== $result = @file_get_contents( $url . '?' . http_build_query( $payload ), false, $context ) ) {
+    $queryString = http_build_query( $payload );
+    $fullUrl     = $url . '?' . $queryString;
 
-      if( $result = json_decode( $result, true ) ) {
-        $this->logger->debug( 'sendGet response', $result );
-        return $result;
+    $ch = curl_init( $fullUrl );
+    curl_setopt( $ch, CURLOPT_HTTPHEADER, [
+      'Content-Type: application/x-www-form-urlencoded',
+      "Authorization: $authorization"
+    ] );
+    curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+    curl_setopt( $ch, CURLOPT_FAILONERROR, false ); // To handle HTTP errors manually
+    curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
 
-      } else {
-        $this->logger->alert( 'sendGet response not JSON', [ 'url' => $url, 'payload' => $payload, 'response' => $result ] );
-        throw new \RuntimeException( 'sendGet response not JSON' );
-      }
-    } else {
+    $result    = curl_exec( $ch );
+    $httpCode  = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    $curlError = curl_error( $ch );
+    curl_close( $ch );
+
+    if( $result === false ) {
       session_destroy();
-      http_response_code( StatusCode::BadGateway->value );
-      $this->logger->warning( 'sendGet: file_get_content false', [ 'url' => $url, 'payload' => $payload ] );
-      exit;
+      $error = curl_error( $ch );
+      $errno = curl_errno( $ch );
+      curl_close( $ch );
+
+      throw new \RuntimeException( "sendGet: cURL error($errno) - $error" );
     }
+
+    if( $httpCode >= 400 ) {
+      session_destroy();
+      throw new \RuntimeException( 'sendGet: Bad HTTP response - ' . $httpCode );
+    }
+
+    $decodedResult = json_decode( $result, true );
+    if( json_last_error() === JSON_ERROR_NONE ) {
+      $this->logger->debug( 'sendGet valid response' );
+      return $decodedResult;
+    }
+
+    $this->logger->alert( 'sendGet response not JSON', [
+      'url'      => $url,
+      'payload'  => $payload,
+      'response' => $result
+    ] );
+    throw new \RuntimeException( 'sendGet response not JSON' );
   }
 
 }
