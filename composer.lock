@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "kingsoft/http",
-            "version": "3.8",
+            "version": "3.8.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/theking2/kingsoft-http.git",
-                "reference": "693bd7d06b79fc176c99c5dde0f46c15d7e20f54"
+                "reference": "133fcf5b33996a6a0c7cb29f7b821c2e10710956"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/theking2/kingsoft-http/zipball/693bd7d06b79fc176c99c5dde0f46c15d7e20f54",
-                "reference": "693bd7d06b79fc176c99c5dde0f46c15d7e20f54",
+                "url": "https://api.github.com/repos/theking2/kingsoft-http/zipball/133fcf5b33996a6a0c7cb29f7b821c2e10710956",
+                "reference": "133fcf5b33996a6a0c7cb29f7b821c2e10710956",
                 "shasum": ""
             },
             "require": {
@@ -42,9 +42,9 @@
             "description": "Http Request/Response handler. It's a simple and easy to use library to handle http request and response.",
             "support": {
                 "issues": "https://github.com/theking2/kingsoft-http/issues",
-                "source": "https://github.com/theking2/kingsoft-http/tree/3.8"
+                "source": "https://github.com/theking2/kingsoft-http/tree/3.8.3"
             },
-            "time": "2024-11-22T08:45:36+00:00"
+            "time": "2025-03-02T19:18:22+00:00"
         },
         {
             "name": "psr/log",
@@ -100,12 +100,12 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "RC",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
         "php": ">=8.2"
     },
-    "platform-dev": [],
-    "plugin-api-version": "2.6.0"
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
 }
