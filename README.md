@@ -1,5 +1,27 @@
 # OAUTH2 authenticator for AzureAD
 
+## Security considerations
+
+### `logoutAzure($redirectUrl)` — open-redirect risk (severity: Low)
+
+`logoutAzure()` appends `$redirectUrl` directly to the Microsoft
+`post_logout_redirect_uri` query parameter.  Microsoft validates this value
+against the redirect URIs registered for your app, which limits exploitability.
+However, if user-supplied input (e.g. from `$_GET` or `$_POST`) is ever passed
+here, it becomes an open-redirect vector should that Azure-side validation be
+misconfigured or loosened.
+
+**Rule:** always pass a hard-coded or configuration-derived URL — never a
+caller/user-supplied value.
+
+```php
+// CORRECT – value comes from your own configuration
+$authenticator->logoutAzure('https://' . $_SERVER['SERVER_NAME']);
+
+// WRONG – value comes from user input
+$authenticator->logoutAzure($_GET['redirect']);   // ← do not do this
+```
+
 ## Sample
 
 Where config.php sets the global SETTINGS and logger LOG
