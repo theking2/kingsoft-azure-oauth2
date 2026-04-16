@@ -131,8 +131,18 @@ class AzureAuthenticator
   }
 
   /**
-   * Summary of logoutAzure
-   * @param $redirectUrl where to redirect after logout
+   * Redirect the user to the Microsoft logout endpoint and then to the given URL.
+   *
+   * **Security notice:** `$redirectUrl` must be a trusted, application-controlled
+   * value (e.g. a hard-coded URL or one taken from your own configuration).
+   * Never pass a value that originates from user input (`$_GET`, `$_POST`, …).
+   * Although Microsoft validates `post_logout_redirect_uri` against the
+   * registered redirect URIs for the app, passing an unvalidated caller-supplied
+   * value creates an open-redirect vector if that validation is ever loosened or
+   * misconfigured.
+   *
+   * @param string $redirectUrl Trusted URL to redirect to after logout.
+   *                            Must not be derived from user-supplied input.
    * @return never
    */
   public function logoutAzure( string $redirectUrl ): never
