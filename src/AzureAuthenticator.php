@@ -71,6 +71,10 @@ class AzureAuthenticator
    */
   public function handleAuthorizationCode(): void
   {
+    if( !is_callable( $this->logon_callback ) ) {
+      throw new \LogicException( 'logon_callback must be set via setLogonCallback() before calling handleAuthorizationCode().' );
+    }
+
     if( isset( $_POST[ 'error' ] ) ) {
       $this->handleError( $_POST[ 'error' ] );
     }
@@ -115,16 +119,14 @@ class AzureAuthenticator
       'displayName'       => $userResource[ "displayName" ]
     ] );
 
-    if( is_callable( $this->logon_callback ) ) {
-      if( !call_user_func( $this->logon_callback, $userResource ) ) {
-        $this->logger->alert( 'Logon error', [
-          'userPrincipalName' => $userResource[ 'userPrincipalName' ],
-          'displayName'       => $userResource[ "displayName" ],
-          'id'                => $userResource[ 'id' ]
-        ] );
-        http_response_code( StatusCode::Forbidden->value );
-        exit();
-      }
+    if( !call_user_func( $this->logon_callback, $userResource ) ) {
+      $this->logger->alert( 'Logon error', [
+        'userPrincipalName' => $userResource[ 'userPrincipalName' ],
+        'displayName'       => $userResource[ "displayName" ],
+        'id'                => $userResource[ 'id' ]
+      ] );
+      http_response_code( StatusCode::Forbidden->value );
+      exit();
     }
 
     return true;
