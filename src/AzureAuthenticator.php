@@ -83,7 +83,7 @@ class AzureAuthenticator
     $userResource = $this->getUserResource( $accessToken );
 
     if( !$this->processLogon( $userResource ) ) {
-      session_unset();
+      session_destroy();
       throw new \RuntimeException( 'Logon error: user not recognized.' );
     }
 
