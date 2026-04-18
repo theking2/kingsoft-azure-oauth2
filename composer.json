@@ -5,7 +5,9 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Kingsoft\\Azure\\": "src/"
+            "Kingsoft\\OAuth2\\": "src/",
+            "Kingsoft\\Azure\\": "src/",
+            "Kingsoft\\Google\\": "src/"
         }
     },
     "authors": [
