@@ -158,17 +158,15 @@ class GoogleAuthenticator
     curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
     curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, 2 );
 
-    $result = curl_exec( $ch );
-
-    if( $result === false ) {
-      $error = curl_error( $ch );
-      $errno = curl_errno( $ch );
-      unset( $ch );
-      throw new \RuntimeException( "sendPost: cURL error($errno) - $error" );
-    }
-
+    $result   = curl_exec( $ch );
+    $error    = curl_error( $ch );
+    $errno    = curl_errno( $ch );
     $httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
     unset( $ch );
+
+    if( $result === false ) {
+      throw new \RuntimeException( "sendPost: cURL error($errno) - $error" );
+    }
 
     if( $httpCode >= 400 ) {
       throw new \RuntimeException( 'sendPost: Bad HTTP response - ' . $httpCode );
@@ -198,16 +196,14 @@ class GoogleAuthenticator
     curl_setopt( $ch, CURLOPT_SSL_VERIFYHOST, 2 );
 
     $result   = curl_exec( $ch );
+    $error    = curl_error( $ch );
+    $errno    = curl_errno( $ch );
     $httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    unset( $ch );
 
     if( $result === false ) {
-      $error = curl_error( $ch );
-      $errno = curl_errno( $ch );
-      unset( $ch );
       throw new \RuntimeException( "sendGet: cURL error($errno) - $error" );
     }
-
-    unset( $ch );
 
     if( $httpCode >= 400 ) {
       throw new \RuntimeException( 'sendGet: Bad HTTP response - ' . $httpCode );
