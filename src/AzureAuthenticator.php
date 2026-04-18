@@ -394,7 +394,6 @@ class AzureAuthenticator
 
     $this->logger->alert( 'sendGet response not JSON', [
       'url'      => $url,
-      'payload'  => $payload,
       'response' => $result
     ] );
     throw new \RuntimeException( 'sendGet response not JSON' );
