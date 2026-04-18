@@ -312,12 +312,12 @@ class AzureAuthenticator
     curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true ); // For security, disable only if needed
 
     $result = curl_exec( $ch );
+    $error  = curl_error( $ch );
+    $errno  = curl_errno( $ch );
+    $httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    unset( $ch );
 
     if( $result === false ) {
-      $error = curl_error( $ch );
-      $errno = curl_errno( $ch );
-      unset( $ch );
-
       throw new \RuntimeException( "sendPost: cURL error($errno) - $error" );
     }
 
@@ -368,21 +368,17 @@ class AzureAuthenticator
     curl_setopt( $ch, CURLOPT_FAILONERROR, false ); // To handle HTTP errors manually
     curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, true );
 
-    $result    = curl_exec( $ch );
-    $httpCode  = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    $curlError = curl_error( $ch );
+    $result   = curl_exec( $ch );
+    $error    = curl_error( $ch );
+    $errno    = curl_errno( $ch );
+    $httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+    unset( $ch );
 
     if( $result === false ) {
-      session_destroy();
-      $error = $curlError;
-      $errno = curl_errno( $ch );
-      unset( $ch );
-
       throw new \RuntimeException( "sendGet: cURL error($errno) - $error" );
     }
 
     if( $httpCode >= 400 ) {
-      session_destroy();
       throw new \RuntimeException( 'sendGet: Bad HTTP response - ' . $httpCode );
     }
 
