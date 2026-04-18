@@ -160,12 +160,12 @@ class GoogleAuthenticator
     if ($result === false) {
       $error = curl_error($ch);
       $errno = curl_errno($ch);
-      curl_close($ch);
+      unset($ch);
       throw new \RuntimeException("sendPost: cURL error($errno) - $error");
     }
 
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    unset($ch);
 
     if ($httpCode >= 400) {
       throw new \RuntimeException('sendPost: Bad HTTP response - ' . $httpCode);
@@ -198,11 +198,11 @@ class GoogleAuthenticator
     if ($result === false) {
       $error = curl_error($ch);
       $errno = curl_errno($ch);
-      curl_close($ch);
+      unset($ch);
       throw new \RuntimeException("sendGet: cURL error($errno) - $error");
     }
 
-    curl_close($ch);
+    unset($ch);
 
     if ($httpCode >= 400) {
       throw new \RuntimeException('sendGet: Bad HTTP response - ' . $httpCode);
