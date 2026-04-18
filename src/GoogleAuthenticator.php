@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 namespace Kingsoft\Google;
 
-use Psr\Http\Message\ResponseInterface;
 use Kingsoft\Http\StatusCode;
 use Psr\Log\LoggerInterface;
 
@@ -145,37 +144,76 @@ class GoogleAuthenticator
 
   private function sendPost(string $url, array $payload): array
   {
-    $opts = [
-      'http' => [
-        'method' => 'POST',
-        'header' => 'Content-Type: application/x-www-form-urlencoded',
-        'content' => http_build_query($payload)
-      ]
-    ];
-    return $this->fetchContent($url, $opts);
+    $this->logger->debug('sendPost', ['url' => $url]);
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($payload));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FAILONERROR, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+    $result = curl_exec($ch);
+
+    if ($result === false) {
+      $error = curl_error($ch);
+      $errno = curl_errno($ch);
+      curl_close($ch);
+      throw new \RuntimeException("sendPost: cURL error($errno) - $error");
+    }
+
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode >= 400) {
+      throw new \RuntimeException('sendPost: Bad HTTP response - ' . $httpCode);
+    }
+
+    $decoded = json_decode($result, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+      $this->logger->alert('sendPost response not JSON', ['url' => $url]);
+      throw new \RuntimeException('sendPost: JSON decode error ' . json_last_error_msg());
+    }
+
+    return $decoded;
   }
 
   private function sendGet(string $url, array $payload, string $authorization): array
   {
-    $opts = [
-      'http' => [
-        'method' => 'GET',
-        'header' => [
-          'Authorization: ' . $authorization
-        ]
-      ]
-    ];
-    return $this->fetchContent($url . '?' . http_build_query($payload), $opts);
-  }
+    $this->logger->debug('sendGet', ['url' => $url]);
 
-  private function fetchContent(string $url, array $opts): array
-  {
-    $context = stream_context_create($opts);
-    if (false === $result = @file_get_contents($url, false, $context)) {
-      http_response_code(StatusCode::BadGateway->value);
-      $this->logger->warning('fetchContent: file_get_content false', ['url' => $url]);
-      throw new \RuntimeException('fetchContent: file_get_content false');
+    $fullUrl = $url . '?' . http_build_query($payload);
+    $ch = curl_init($fullUrl);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: $authorization"]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FAILONERROR, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+    $result   = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if ($result === false) {
+      $error = curl_error($ch);
+      $errno = curl_errno($ch);
+      curl_close($ch);
+      throw new \RuntimeException("sendGet: cURL error($errno) - $error");
     }
-    return json_decode($result, true) ?: throw new \RuntimeException('Invalid JSON response');
+
+    curl_close($ch);
+
+    if ($httpCode >= 400) {
+      throw new \RuntimeException('sendGet: Bad HTTP response - ' . $httpCode);
+    }
+
+    $decoded = json_decode($result, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+      $this->logger->alert('sendGet response not JSON', ['url' => $url]);
+      throw new \RuntimeException('sendGet: JSON decode error ' . json_last_error_msg());
+    }
+
+    return $decoded;
   }
 }
