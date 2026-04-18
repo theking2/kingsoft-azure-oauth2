@@ -75,15 +75,15 @@ class AzureAuthenticator
       throw new \LogicException( 'logon_callback must be set via setLogonCallback() before calling handleAuthorizationCode().' );
     }
 
-    if( isset( $_POST[ 'error' ] ) ) {
-      $this->handleError( $_POST[ 'error' ] );
+    if( isset( $_POST['error'] ) ) {
+      $this->handleError( $_POST['error'] );
     }
 
-    if( !$this->isStateValid( $_POST[ 'state' ] ?? '' ) ) {
+    if( !$this->isStateValid( $_POST['state'] ?? '' ) ) {
       throw new \RuntimeException( 'State mismatch detected.' );
     }
 
-    $accessToken  = $this->getAccessToken( $_POST[ 'code' ] ?? '' );
+    $accessToken  = $this->getAccessToken( $_POST['code'] ?? '' );
     $userResource = $this->getUserResource( $accessToken );
 
     if( !$this->processLogon( $userResource ) ) {
@@ -92,8 +92,8 @@ class AzureAuthenticator
     }
 
     $this->logger->debug( 'Redirect to /', [
-      'userPrincipalName' => $userResource[ 'userPrincipalName' ],
-      'displayName'       => $userResource[ "displayName" ]
+      'userPrincipalName' => $userResource['userPrincipalName'],
+      'displayName'       => $userResource["displayName"]
     ] );
 
     header( 'Location: /' );
@@ -115,15 +115,15 @@ class AzureAuthenticator
   private function processLogon( array $userResource ): bool
   {
     $this->logger->info( 'AD User logged on', [
-      'userPrincipalName' => $userResource[ 'userPrincipalName' ],
-      'displayName'       => $userResource[ "displayName" ]
+      'userPrincipalName' => $userResource['userPrincipalName'],
+      'displayName'       => $userResource["displayName"]
     ] );
 
     if( !call_user_func( $this->logon_callback, $userResource ) ) {
       $this->logger->alert( 'Logon error', [
-        'userPrincipalName' => $userResource[ 'userPrincipalName' ],
-        'displayName'       => $userResource[ "displayName" ],
-        'id'                => $userResource[ 'id' ]
+        'userPrincipalName' => $userResource['userPrincipalName'],
+        'displayName'       => $userResource["displayName"],
+        'id'                => $userResource['id']
       ] );
       http_response_code( StatusCode::Forbidden->value );
       exit();
@@ -237,25 +237,25 @@ class AzureAuthenticator
     ];
 
     if( $answer = $this->sendPost( $token_url, $params ) ) {
-      if( isset( $answer[ 'error' ] ) ) {
-        $this->logger->critical( 'sendPost error response', ['error' => $answer[ 'error' ]] );
+      if( isset( $answer['error'] ) ) {
+        $this->logger->critical( 'sendPost error response', ['error' => $answer['error']] );
         http_response_code( StatusCode::BadGateway->value );
         throw new \RuntimeException( 'sendPost error response' );
       }
-      if( $answer[ 'token_type' ] !== 'Bearer' ) {
-        $this->logger->critical( "Wrong token type", ['token_type' => $answer[ 'token_type' ]] );
+      if( $answer['token_type'] !== 'Bearer' ) {
+        $this->logger->critical( "Wrong token type", ['token_type' => $answer['token_type']] );
         http_response_code( StatusCode::BadGateway->value );
         throw new \RuntimeException( 'Wrong token type' );
       }
       $this->logger->debug( 'Got access token',
         [
-          "scope"          => $answer[ 'scope' ],
-          "token_type"     => $answer[ 'token_type' ],
-          "expires_in"     => $answer[ 'expires_in' ],
-          "ext_expires_in" => $answer[ 'ext_expires_in' ]
+          "scope"          => $answer['scope'],
+          "token_type"     => $answer['token_type'],
+          "expires_in"     => $answer['expires_in'],
+          "ext_expires_in" => $answer['ext_expires_in']
         ]
       );
-      return $answer[ 'access_token' ]
+      return $answer['access_token']
         ?? throw new \RuntimeException( 'No access token' );
     } else {
       $this->logger->alert( 'No answer from sendPost' );
@@ -299,6 +299,8 @@ class AzureAuthenticator
     $this->logger->debug( 'sendPost', ['url' => $url] );
 
     $ch = curl_init( $url );
+    curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 5 );
+    curl_setopt( $ch, CURLOPT_TIMEOUT, 10 );
     curl_setopt( $ch, CURLOPT_POST, true );
     curl_setopt( $ch, CURLOPT_POSTFIELDS, http_build_query( $payload ) );
     curl_setopt( $ch, CURLOPT_HTTPHEADER, [
@@ -356,6 +358,8 @@ class AzureAuthenticator
     $fullUrl     = $url . '?' . $queryString;
 
     $ch = curl_init( $fullUrl );
+    curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 5 );
+    curl_setopt( $ch, CURLOPT_TIMEOUT, 10 );
     curl_setopt( $ch, CURLOPT_HTTPHEADER, [
       'Content-Type: application/x-www-form-urlencoded',
       "Authorization: $authorization"
