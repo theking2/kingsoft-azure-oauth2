@@ -1,5 +1,37 @@
 # OAUTH2 authenticator for AzureAD
 
+## Requesting additional Graph scopes
+
+By default the class only requests `https://graph.microsoft.com/User.Read`,
+enough to resolve the signed-in user's profile for `logon_callback`. If your
+app needs to make further Graph calls with the same delegated permissions
+(e.g. reading group memberships), request the extra scope(s) before calling
+`requestAzureAdCode()`:
+
+```php
+->addScope( 'https://graph.microsoft.com/GroupMember.Read.All' )
+```
+
+`setScope()` replaces the scope entirely instead of extending it — only use
+it if you also want to drop the default `User.Read` scope.
+
+`logon_callback` receives the raw token response as an optional second
+argument, so it can use the access token for its own Graph calls within the
+same request (there's no second round-trip, and nothing is persisted by this
+class — store what you need in `$_SESSION` yourself if it must survive past
+`logon_callback`):
+
+```php
+function findUser( array $resource, array $tokenAnswer ): bool
+{
+  // $tokenAnswer['access_token'] -- Bearer token for the scopes granted above
+  // $tokenAnswer['expires_in']   -- seconds until it expires
+}
+```
+
+Existing single-argument `logon_callback` implementations don't need to
+change — PHP ignores the extra argument for callables that don't declare it.
+
 ## Sample
 
 Where config.php sets the global SETTINGS and logger LOG
@@ -126,9 +158,11 @@ function checkState( string $state ): bool
  * Searches for a user with the provided resource array.
  *
  * @param array $resource The array containing user data to search for.
+ * @param array $tokenAnswer The raw token response (access_token, expires_in, ...);
+ *   only useful if you requested extra scopes via setScope()/addScope().
  * @return bool Returns true if the user is found, false otherwise.
  */
-function findUser( array $resource ): bool
+function findUser( array $resource, array $tokenAnswer = [] ): bool
 {
   try {
     // check with database or so if user exists
