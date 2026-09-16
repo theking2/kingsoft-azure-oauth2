@@ -36,6 +36,30 @@ class AzureAuthenticator
     $this->tenant_id = $tenant_id;
     return $this;
   }
+
+  private string $scope = self::MSGRAPH_SCOPE;
+  /**
+   * Replace the requested scope entirely. Defaults to `User.Read` only, which is
+   * enough to resolve the signed-in user's Graph profile for logon_callback but
+   * nothing else -- pass a space-separated scope string to ask for more (e.g. to
+   * later make additional Graph calls with the token handed to logon_callback).
+   * @see addScope() to extend the default scope instead of replacing it.
+   */
+  public function setScope( string $scope ): self
+  {
+    $this->scope = $scope;
+    return $this;
+  }
+  /**
+   * Add one or more space-separated scopes to whatever is currently requested,
+   * without disturbing the default `User.Read` scope this class needs internally.
+   */
+  public function addScope( string $scope ): self
+  {
+    $scopes      = array_filter( explode( ' ', $this->scope . ' ' . $scope ) );
+    $this->scope = implode( ' ', array_unique( $scopes ) );
+    return $this;
+  }
   // #MARK: Callbacks
   private ?string $get_state_callback = null;
   public function setGetStateCallback( string $callback ): self
@@ -83,10 +107,10 @@ class AzureAuthenticator
       throw new \RuntimeException( 'State mismatch detected.' );
     }
 
-    $accessToken  = $this->getAccessToken( $_POST['code'] ?? '' );
-    $userResource = $this->getUserResource( $accessToken );
+    $tokenAnswer  = $this->getAccessToken( $_POST['code'] ?? '' );
+    $userResource = $this->getUserResource( $tokenAnswer['access_token'] );
 
-    if( !$this->processLogon( $userResource ) ) {
+    if( !$this->processLogon( $userResource, $tokenAnswer ) ) {
       session_destroy();
       throw new \RuntimeException( 'Logon error: user not recognized.' );
     }
@@ -112,14 +136,24 @@ class AzureAuthenticator
     return is_callable( $this->check_state_callback ) && call_user_func( $this->check_state_callback, $state );
   }
 
-  private function processLogon( array $userResource ): bool
+  /**
+   * @param array $tokenAnswer the raw token response (access_token, scope,
+   *   expires_in, ext_expires_in, token_type, and refresh_token if requested via
+   *   `offline_access` scope) -- forwarded to logon_callback so a consumer that
+   *   requested extra scopes via setScope()/addScope() can make its own Graph
+   *   calls during this same request, without a second token round-trip.
+   *   Existing single-argument logon_callback implementations keep working
+   *   unchanged; PHP ignores the extra argument for callables that don't declare
+   *   a second parameter.
+   */
+  private function processLogon( array $userResource, array $tokenAnswer ): bool
   {
     $this->logger->info( 'AD User logged on', [
       'userPrincipalName' => $userResource['userPrincipalName'],
       'displayName'       => $userResource["displayName"]
     ] );
 
-    if( !call_user_func( $this->logon_callback, $userResource ) ) {
+    if( !call_user_func( $this->logon_callback, $userResource, $tokenAnswer ) ) {
       $this->logger->alert( 'Logon error', [
         'userPrincipalName' => $userResource['userPrincipalName'],
         'displayName'       => $userResource["displayName"],
@@ -163,7 +197,7 @@ class AzureAuthenticator
     $state  = $this->get_state_callback ? call_user_func( $this->get_state_callback ) : session_id();
     $params = [
       'client_id'     => $this->client_id,
-      'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
+      'scope'         => $this->scope,
       'redirect_uri'  => $this->redirect_url,
       'response_mode' => 'form_post',
       'response_type' => 'code',
@@ -188,7 +222,7 @@ class AzureAuthenticator
     $this->logger->debug( 'State validity', ['state' => self::shorten( $state ), 'valid' => $valid] );
     $params = [
       'client_id'     => $this->client_id,
-      'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
+      'scope'         => $this->scope,
       'redirect_uri'  => $this->redirect_url,
       'response_mode' => 'form_post',
       'response_type' => 'code',
@@ -216,9 +250,12 @@ class AzureAuthenticator
    * getAccessToken
    * Only accept bearer type tokens
    * @param $authorization_code received from AD to access graph
+   * @return array the raw token response (access_token, scope, token_type,
+   *   expires_in, ext_expires_in, and refresh_token if `offline_access` was
+   *   requested via setScope()/addScope())
    * @throws \RuntimeException if the response is not JSON
    */
-  private function getAccessToken( string $authorization_code ): string
+  private function getAccessToken( string $authorization_code ): array
   {
     $this->logger->debug( 'Getting access token', ['authorization_code' => self::shorten( $authorization_code, 15 )] );
 
@@ -228,11 +265,9 @@ class AzureAuthenticator
     $params = [
       'client_id'     => $this->client_id,
       'client_secret' => $this->client_secret,
-      'scope'         => AzureAuthenticator::MSGRAPH_SCOPE,
+      'scope'         => $this->scope,
       'redirect_uri'  => $this->redirect_url,
-      'response_mode' => 'form_post',
       'grant_type'    => 'authorization_code',
-      'response_type' => 'code id_token offline_access',
       'code'          => $authorization_code,
     ];
 
@@ -255,8 +290,10 @@ class AzureAuthenticator
           "ext_expires_in" => $answer['ext_expires_in']
         ]
       );
-      return $answer['access_token']
-        ?? throw new \RuntimeException( 'No access token' );
+      if( !isset( $answer['access_token'] ) ) {
+        throw new \RuntimeException( 'No access token' );
+      }
+      return $answer;
     } else {
       $this->logger->alert( 'No answer from sendPost' );
       http_response_code( StatusCode::BadGateway->value );
