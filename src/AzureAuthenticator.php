@@ -30,7 +30,7 @@ class AzureAuthenticator
   ) {
     $this->logger->debug( 'AzureAuthenticator loaded' );
   }
-  private string $tenant_id = '';
+  private string $tenant_id = 'common';
   public function setTenantId( string $tenant_id ): self
   {
     $this->tenant_id = $tenant_id;
@@ -318,34 +318,27 @@ class AzureAuthenticator
       $params['code_verifier'] = $verifier;
     }
 
-    if( $answer = $this->sendPost( $token_url, $params ) ) {
-      if( isset( $answer['error'] ) ) {
-        $this->logger->critical( 'sendPost error response', ['error' => $answer['error']] );
-        http_response_code( StatusCode::BadGateway->value );
-        throw new \RuntimeException( 'sendPost error response' );
-      }
-      if( $answer['token_type'] !== 'Bearer' ) {
-        $this->logger->critical( "Wrong token type", ['token_type' => $answer['token_type']] );
-        http_response_code( StatusCode::BadGateway->value );
-        throw new \RuntimeException( 'Wrong token type' );
-      }
-      $this->logger->debug( 'Got access token',
-        [
-          "scope"          => $answer['scope'],
-          "token_type"     => $answer['token_type'],
-          "expires_in"     => $answer['expires_in'],
-          "ext_expires_in" => $answer['ext_expires_in']
-        ]
-      );
-      if( !isset( $answer['access_token'] ) ) {
-        throw new \RuntimeException( 'No access token' );
-      }
-      return $answer;
-    } else {
-      $this->logger->alert( 'No answer from sendPost' );
+    // sendPost() throws AzureOAuthException itself on a structured Azure AD
+    // error response, so $answer here is always a well-formed success body.
+    $answer = $this->sendPost( $token_url, $params );
+
+    if( $answer['token_type'] !== 'Bearer' ) {
+      $this->logger->critical( "Wrong token type", ['token_type' => $answer['token_type']] );
       http_response_code( StatusCode::BadGateway->value );
-      throw new \RuntimeException( 'No answer from sendPost' );
+      throw new \RuntimeException( 'Wrong token type' );
     }
+    $this->logger->debug( 'Got access token',
+      [
+        "scope"          => $answer['scope'],
+        "token_type"     => $answer['token_type'],
+        "expires_in"     => $answer['expires_in'],
+        "ext_expires_in" => $answer['ext_expires_in']
+      ]
+    );
+    if( !isset( $answer['access_token'] ) ) {
+      throw new \RuntimeException( 'No access token' );
+    }
+    return $answer;
   }
 
   // #MARK: helpers
@@ -429,23 +422,30 @@ class AzureAuthenticator
       throw new \RuntimeException( "sendPost: cURL error($errno) - $error" );
     }
 
+    $decoded = json_decode( $result, true );
+    $isJson  = json_last_error() === JSON_ERROR_NONE;
+
     if( $httpCode >= 400 ) {
+      if( $isJson && isset( $decoded['error'] ) ) {
+        $this->logger->critical( 'sendPost: Azure AD error response', $decoded );
+        throw new AzureOAuthException(
+          sprintf( '%s: %s', $decoded['error'], $decoded['error_description'] ?? 'no description provided' ),
+          $decoded
+        );
+      }
       throw new \RuntimeException( 'sendPost: Bad HTTP response - ' . $httpCode );
     }
 
-    $this->logger->debug( 'sendPost: Response received' );
-    $result = json_decode( $result, true );
-
-    if( json_last_error() === JSON_ERROR_NONE ) {
-      $this->logger->debug( 'sendPost: valid response' );
-      return $result;
+    if( !$isJson ) {
+      $this->logger->alert( 'sendPost response not JSON', [
+        'url'      => $url,
+        'response' => $result
+      ] );
+      throw new \RuntimeException( 'sendPost: JSON decode error ' . json_last_error_msg() );
     }
 
-    $this->logger->alert( 'sendPost response not JSON', [
-      'url'      => $url,
-      'response' => $result
-    ] );
-    throw new \RuntimeException( 'sendPost: JSON decode error ' . json_last_error_msg() );
+    $this->logger->debug( 'sendPost: valid response' );
+    return $decoded;
   }
   /**
    * Sends a GET request to the specified URL with the given payload and authorization header.
@@ -483,21 +483,33 @@ class AzureAuthenticator
       throw new \RuntimeException( "sendGet: cURL error($errno) - $error" );
     }
 
+    $decoded = json_decode( $result, true );
+    $isJson  = json_last_error() === JSON_ERROR_NONE;
+
     if( $httpCode >= 400 ) {
+      if( $isJson && isset( $decoded['error'] ) ) {
+        $graphError = $decoded['error'];
+        $this->logger->critical( 'sendGet: Graph error response', is_array( $graphError ) ? $graphError : ['error' => $graphError] );
+        throw new AzureOAuthException(
+          is_array( $graphError )
+            ? sprintf( '%s: %s', $graphError['code'] ?? 'error', $graphError['message'] ?? 'no description provided' )
+            : (string) $graphError,
+          $decoded
+        );
+      }
       throw new \RuntimeException( 'sendGet: Bad HTTP response - ' . $httpCode );
     }
 
-    $decodedResult = json_decode( $result, true );
-    if( json_last_error() === JSON_ERROR_NONE ) {
-      $this->logger->debug( 'sendGet valid response' );
-      return $decodedResult;
+    if( !$isJson ) {
+      $this->logger->alert( 'sendGet response not JSON', [
+        'url'      => $url,
+        'response' => $result
+      ] );
+      throw new \RuntimeException( 'sendGet response not JSON' );
     }
 
-    $this->logger->alert( 'sendGet response not JSON', [
-      'url'      => $url,
-      'response' => $result
-    ] );
-    throw new \RuntimeException( 'sendGet response not JSON' );
+    $this->logger->debug( 'sendGet valid response' );
+    return $decoded;
   }
 
 }
