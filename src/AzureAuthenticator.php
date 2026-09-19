@@ -37,6 +37,30 @@ class AzureAuthenticator
     return $this;
   }
 
+  private const PKCE_SESSION_KEY = '_azure_pkce_code_verifier';
+
+  private bool $use_pkce     = true;
+  private string $pkce_method = 'S256';
+  /**
+   * MARK: PKCE
+   * Enable/disable PKCE (RFC 7636) and pick the challenge method. Enabled with
+   * `S256` by default since it costs nothing extra and hardens the code
+   * exchange against interception -- disable only if the registered Azure AD
+   * app rejects the extra `code_challenge*` parameters.
+   * The verifier is stored in `$_SESSION` between requestAzureAdCode() and
+   * handleAuthorizationCode() because a fresh instance of this class is
+   * created for each leg of the flow.
+   */
+  public function setPkce( bool $enabled, string $method = 'S256' ): self
+  {
+    if( !in_array( $method, ['S256', 'plain'], true ) ) {
+      throw new \InvalidArgumentException( 'PKCE method must be S256 or plain' );
+    }
+    $this->use_pkce    = $enabled;
+    $this->pkce_method = $method;
+    return $this;
+  }
+
   private string $scope = self::MSGRAPH_SCOPE;
   /**
    * MARK: Scope
@@ -204,6 +228,14 @@ class AzureAuthenticator
       'response_type' => 'code',
       'state'         => $state,
     ];
+
+    if( $this->use_pkce ) {
+      $verifier                         = self::generateCodeVerifier();
+      $_SESSION[self::PKCE_SESSION_KEY] = $verifier;
+      $params['code_challenge']         = $this->codeChallengeFor( $verifier );
+      $params['code_challenge_method']  = $this->pkce_method;
+    }
+
     $this->logger->debug( 'Redirect to Azure AD authorizer', ['url' => $this->redirect_url, 'state' => self::shorten( $state )] );
     $login_url = $this->getAuthUrl();
     header( 'Location: ' . $login_url . '?' . http_build_query( $params ) );
@@ -229,6 +261,11 @@ class AzureAuthenticator
       'response_type' => 'code',
       'state'         => $state,
     ];
+    if( $this->use_pkce ) {
+      $verifier                        = self::generateCodeVerifier();
+      $params['code_challenge']        = $this->codeChallengeFor( $verifier );
+      $params['code_challenge_method'] = $this->pkce_method;
+    }
     $this->logger->debug( 'Params', $params );
   }
 
@@ -272,6 +309,15 @@ class AzureAuthenticator
       'code'          => $authorization_code,
     ];
 
+    if( $this->use_pkce ) {
+      $verifier = $_SESSION[self::PKCE_SESSION_KEY] ?? '';
+      unset( $_SESSION[self::PKCE_SESSION_KEY] );
+      if( $verifier === '' ) {
+        throw new \RuntimeException( 'PKCE code verifier missing from session; requestAzureAdCode() must run first in the same session.' );
+      }
+      $params['code_verifier'] = $verifier;
+    }
+
     if( $answer = $this->sendPost( $token_url, $params ) ) {
       if( isset( $answer['error'] ) ) {
         $this->logger->critical( 'sendPost error response', ['error' => $answer['error']] );
@@ -312,6 +358,30 @@ class AzureAuthenticator
   {
     return AzureAuthenticator::MSONLINE_URL . $this->tenant_id . "/oauth2/v2.0/authorize";
   }
+  /**
+   * RFC 7636 base64url encoding: base64 with URL-safe alphabet and no padding.
+   */
+  private static function base64UrlEncode( string $data ): string
+  {
+    return rtrim( strtr( base64_encode( $data ), '+/', '-_' ), '=' );
+  }
+
+  /**
+   * generateCodeVerifier
+   * 64 random bytes -> ~86 base64url characters, within the 43-128 range RFC 7636 requires.
+   */
+  private static function generateCodeVerifier(): string
+  {
+    return self::base64UrlEncode( random_bytes( 64 ) );
+  }
+
+  private function codeChallengeFor( string $verifier ): string
+  {
+    return $this->pkce_method === 'S256'
+      ? self::base64UrlEncode( hash( 'sha256', $verifier, true ) )
+      : $verifier;
+  }
+
   /**
    * shorten
    * @param  $text string to shorten
