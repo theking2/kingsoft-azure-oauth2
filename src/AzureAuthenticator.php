@@ -39,6 +39,7 @@ class AzureAuthenticator
 
   private string $scope = self::MSGRAPH_SCOPE;
   /**
+   * MARK: Scope
    * Replace the requested scope entirely. Defaults to `User.Read` only, which is
    * enough to resolve the signed-in user's Graph profile for logon_callback but
    * nothing else -- pass a space-separated scope string to ask for more (e.g. to
