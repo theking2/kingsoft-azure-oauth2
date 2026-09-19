@@ -358,9 +358,6 @@ class AzureAuthenticator
       throw new \RuntimeException( "sendPost: cURL error($errno) - $error" );
     }
 
-    $httpCode = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-    unset( $ch );
-
     if( $httpCode >= 400 ) {
       throw new \RuntimeException( 'sendPost: Bad HTTP response - ' . $httpCode );
     }
